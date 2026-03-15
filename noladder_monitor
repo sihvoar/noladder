@@ -1,0 +1,23 @@
+#!/bin/bash
+# Wrapper script for noladder_monitor.py
+# Automatically activates the virtual environment
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_PATH="$SCRIPT_DIR/.venv"
+
+# Check if venv exists
+if [ ! -d "$VENV_PATH" ]; then
+    echo "Creating Python virtual environment..."
+    python3 -m venv "$VENV_PATH"
+
+    echo "Installing dependencies..."
+    "$VENV_PATH/bin/pip" install --upgrade pip setuptools wheel > /dev/null
+    "$VENV_PATH/bin/pip" install PySide6 pymodbus > /dev/null
+    echo "✓ Virtual environment ready"
+fi
+
+# Activate venv and run monitor
+source "$VENV_PATH/bin/activate"
+exec python3 "$SCRIPT_DIR/tools/noladder_monitor.py" "$@"

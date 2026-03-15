@@ -64,18 +64,24 @@ Clone and run:
 git clone https://github.com/sihvoar/noladder
 cd noladder
 
-# terminal 1 — bus server with simulated Modbus motor
-cargo run --example hello_world_bus
+# terminal 1 — mock Modbus server (generates synthetic pump + sensor data)
+./noladder_mock_bus examples/hello_world/machine.toml
 
-# terminal 2 — OS server
+# terminal 2 — bus server (reads Modbus, writes to shared memory)
+cargo run --bin noladder-bus -- examples/hello_world/machine.toml
+
+# terminal 3 — OS handler (processes "hello" events)
 cargo run --example hello_world_os
 
-# terminal 3 — control loop
+# terminal 4 — control loop (pump controller + hello world messages)
 cargo run --example hello_world
+
+# terminal 5 — live monitor (reads shared memory, shows all IO)
+./noladder_monitor examples/hello_world/machine.toml
 ```
 
-Toggle the Modbus coil with any Modbus tool.
-Watch NoLadder say hello.
+Watch the monitor display pump speed ramping up and down as the control loop reacts to tank levels.
+"Hello World!" prints every 2 seconds.
 That is the entire stack working end to end.
 
 ---
