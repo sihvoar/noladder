@@ -61,10 +61,10 @@ cd noladder
 ```
 
 That's it. The setup script handles:
-- System dependencies (build tools, libraries)
+- System dependencies (build tools, graphics libs)
 - Rust toolchain (if needed)
 - Building the project
-- Python environment + PySide6
+- Python packages (PySide6, pymodbus)
 
 Then run the demo (opens 5 windows):
 ```bash
@@ -76,7 +76,6 @@ Watch the monitor display pump speed ramping up and down as the control loop rea
 That is the entire stack working end to end.
 
 **New to NoLadder?** → Read [GETTING_STARTED.md](GETTING_STARTED.md)
-**Need more help?** → Read [PYTHON_SETUP.md](PYTHON_SETUP.md)
 
 ---
 

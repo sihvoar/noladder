@@ -2,29 +2,18 @@
 
 ## Quick Start (5 minutes)
 
-### 1. Build the Rust components
-```bash
-cargo build --release
-```
-
-### 2. Set up Python environment (one-time)
+### 1. One-time setup
 ```bash
 ./tools/setup.sh
 ```
 
-This creates an isolated Python environment with all dependencies. **You only run this once.**
+This installs everything:
+- System dependencies (build tools, graphics libraries)
+- Rust toolchain (if needed)
+- Python packages (PySide6, pymodbus)
+- Builds the entire project
 
-### 3. Activate Python environment (every new terminal)
-```bash
-source .venv/bin/activate
-```
-
-Or make it permanent:
-```bash
-echo "source ~/noladder/.venv/bin/activate" >> ~/.bashrc
-```
-
-### 4. Run the hello_world example
+### 2. Run the hello_world example
 
 **Terminal 1 — Mock Modbus server (synthetic data):**
 ```bash
@@ -82,27 +71,20 @@ python3 tools/tests/test_monitor.py
 
 ## FAQ
 
-**Q: Do I really need the venv?**
-A: Yes. It isolates Python dependencies from your system and avoids the Qt6 library mismatch. One-time setup, then it's automatic.
-
 **Q: What if `./tools/setup.sh` fails?**
 A: Run it with verbose output to see what went wrong:
 ```bash
 bash -x ./tools/setup.sh
 ```
 
-**Q: How do I update dependencies?**
-A: Delete and recreate:
-```bash
-rm -rf .venv
-./tools/setup.sh
-```
-
 **Q: Can I use the monitor without the full stack?**
-A: Yes! Use `mock_noladder.py` to generate data, then run the monitor in another terminal.
+A: Yes! Use `noladder_mock_bus.py` to generate data, then run the monitor in another terminal.
 
 **Q: What Python version do I need?**
 A: Python 3.8+. Tested with 3.12.
+
+**Q: Can I use this on non-Ubuntu/Debian systems?**
+A: The setup script uses `apt`. For other distros, install manually: build-essential, python3-dev, libssl-dev, python3-pyside6, python3-pymodbus, then run `cargo build --release`.
 
 ---
 
@@ -111,7 +93,6 @@ A: Python 3.8+. Tested with 3.12.
 - Read [README.md](README.md) for architecture overview
 - Check [docs/UserGuide.md](docs/UserGuide.md) for how to write rungs
 - Look at `examples/hello_world/` to understand the control loop
-- See [PYTHON_SETUP.md](PYTHON_SETUP.md) for Python environment details
 
 ---
 
@@ -136,12 +117,9 @@ No magic. Just Rust binaries and shared memory. 100% deterministic.
 
 **Monitor won't start:**
 ```bash
-# Activate venv
-source .venv/bin/activate
-
-# Try again
-./noladder_monitor examples/hello_world/machine.toml
+python3 tools/noladder_monitor.py examples/hello_world/machine.toml
 ```
+Check that setup.sh completed successfully (especially Step 4: Verification).
 
 **Bus server won't connect to Modbus:**
 - Make sure mock_bus is running in another terminal
@@ -152,9 +130,8 @@ source .venv/bin/activate
 - Verify OS handler is running
 - Look at the error message — usually a device config issue
 
-**Tests fail:**
+**Tests:**
 ```bash
-source .venv/bin/activate
 python3 tools/tests/test_monitor.py -v
 ```
 
