@@ -50,39 +50,33 @@ Swap hardware without changing a line of control code.
 
 ---
 
-## Try It In 60 Seconds
+## Get Started in 3 Commands
 
-No hardware required. Runs a simulated Modbus motor.
+No hardware required. Fresh Linux? No problem.
 
-Install Rust (1.75 or newer):
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Clone and run:
 ```bash
 git clone https://github.com/sihvoar/noladder
 cd noladder
+./tools/setup.sh
+```
 
-# terminal 1 — mock Modbus server (generates synthetic pump + sensor data)
-./noladder_mock_bus examples/hello_world/machine.toml
+That's it. The setup script handles:
+- System dependencies (build tools, libraries)
+- Rust toolchain (if needed)
+- Building the project
+- Python environment + PySide6
 
-# terminal 2 — bus server (reads Modbus, writes to shared memory)
-cargo run --bin noladder-bus -- examples/hello_world/machine.toml
-
-# terminal 3 — OS handler (processes "hello" events)
-cargo run --example hello_world_os
-
-# terminal 4 — control loop (pump controller + hello world messages)
-cargo run --example hello_world
-
-# terminal 5 — live monitor (reads shared memory, shows all IO)
-./noladder_monitor examples/hello_world/machine.toml
+Then run the demo (opens 5 windows):
+```bash
+./tools/launch_hello_world.sh
 ```
 
 Watch the monitor display pump speed ramping up and down as the control loop reacts to tank levels.
 "Hello World!" prints every 2 seconds.
 That is the entire stack working end to end.
+
+**New to NoLadder?** → Read [GETTING_STARTED.md](GETTING_STARTED.md)
+**Need more help?** → Read [PYTHON_SETUP.md](PYTHON_SETUP.md)
 
 ---
 
@@ -119,7 +113,7 @@ No state machines. No nested ifs. No flags.
 The monitor reads the shared IO image directly.
 Inspect every device and signal live, no configuration needed.
 
-![NoLadder Monitor](noladder_monitor.png)
+![NoLadder Monitor](assets/noladder-monitor.png)
 
 ---
 
