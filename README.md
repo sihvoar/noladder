@@ -9,7 +9,6 @@ For people who can program.
 
 ---
 
-You took the Beckhoff course.
 You looked at Structured Text.
 You wondered why control software still looks like 1993.
 
@@ -129,4 +128,4 @@ Inspect every device and signal live, no configuration needed.
 
 ## License
 
-MIT — [Copyright 2025 Ari Sihvola](LICENSE)
+MIT — [Copyright 2025 AP Sihvonen](LICENSE)
