@@ -18,5 +18,9 @@ Cargo.lock
 # Local machine configs
 machine_local.toml
 
-#python
+# Python
 __pycache__
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
