@@ -40,16 +40,16 @@ name = "basic_io"
 path = "examples/basic_io/main.rs"
 
 [[example]]
-name = "hello_world_bus"
-path = "examples/hello_world/bus_main.rs"
-
-[[example]]
 name = "hello_world_os"
 path = "examples/hello_world/os_main.rs"
 
 [[example]]
 name = "hello_world"
 path = "examples/hello_world/main.rs"
+
+[[example]]
+name = "monitor_test"
+path = "examples/monitor_test/main.rs"
 
 # ------------------------------------
 # Dependencies

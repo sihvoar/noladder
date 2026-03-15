@@ -1,10 +1,14 @@
-# src/examples/hello_world/machine.toml
+# examples/hello_world/machine.toml
 #
-# hello_world example — simulated Modbus coil
-# No hardware required — slave runs in the same process
+# hello_world example — mock Modbus pump + tank sensors
+# No hardware required — Python mock bus serves synthetic data
 #
-# Run with:
-#   cargo run --example hello_world
+# Start order:
+#   Terminal 1: python3 tools/noladder_mock_bus.py examples/hello_world/machine.toml
+#   Terminal 2: cargo run --bin noladder-bus  -- examples/hello_world/machine.toml
+#   Terminal 3: cargo run --example hello_world_os
+#   Terminal 4: cargo run --example hello_world
+#   Terminal 5: python3 tools/noladder_monitor.py examples/hello_world/machine.toml
 
 [general]
 cycle_ms = 10
@@ -14,10 +18,18 @@ interface = "127.0.0.1"
 port      = 5502
 cycle_ms  = 10
 
-# One digital input — the coil
-# inputs:
-#   coil.0  bool  active after 2 seconds
-[device."coil"]
+# inputs:  demo.pump.speed (rpm), demo.pump.current (A)
+# outputs: demo.pump.setpoint (rpm), demo.pump.enable (bool)
+[device."demo.pump"]
 bus  = "modbus0"
 node = 0
-type = "digital_in"
+type = "vfd"
+note = "mock pump"
+
+# inputs: demo.sensors.0 (level %), demo.sensors.1 (pressure bar),
+#         demo.sensors.2 (temp °C), demo.sensors.3 (flow l/min)
+[device."demo.sensors"]
+bus  = "modbus0"
+node = 1
+type = "analog_in"
+note = "mock tank sensors"

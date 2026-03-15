@@ -17,12 +17,13 @@ use std::time::Duration;
 
 use tracing::info;
 
-use noladder::core::{
-    mailbox::PAYLOAD_SIZE,
-    shared_memory::SharedMailbox,
+use noladder::{
+    SHM_MB_PATH,
+    core::{
+        mailbox::PAYLOAD_SIZE,
+        shared_memory::SharedMailbox,
+    },
 };
-
-const SHM_MB: &str = "/dev/shm/noladder_hello_mb";
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -31,7 +32,7 @@ fn main() -> anyhow::Result<()> {
 
     info!("─────────────────────────────────");
     info!("  hello_world OS process");
-    info!("  Mailbox → {}", SHM_MB);
+    info!("  Mailbox → {}", SHM_MB_PATH);
     info!("─────────────────────────────────");
 
     // ------------------------------------
@@ -39,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     // control process will open this
     // ------------------------------------
 
-    let mut shm = SharedMailbox::create(SHM_MB)?;
+    let mut shm = SharedMailbox::create(SHM_MB_PATH)?;
 
     info!("OS process ready — waiting for requests");
 
