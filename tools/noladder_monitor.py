@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # noladder_monitor.py
 
 import sys
@@ -7,7 +8,7 @@ import os
 import tomllib
 import time
 from pathlib import Path
-from collections import deque
+from collections import deque, defaultdict
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow,
@@ -26,19 +27,37 @@ from PySide6.QtCharts import QChart, QChartView, QLineSeries
 from PySide6.QtCore import QPointF
 
 # ------------------------------------
-# Constants — must match Rust layout
+# Constants - must match Rust layout
 # ------------------------------------
 
 VALUE_SIZE   = 8
 MAX_IO       = 4096
 SEQUENCE_OFF = 0
-INPUTS_OFF   = 4
+INPUTS_OFF   = 8
 OUTPUTS_OFF  = INPUTS_OFF + (MAX_IO * VALUE_SIZE)
 
 TAG_UNSET = 0
 TAG_BOOL  = 1
 TAG_INT   = 2
 TAG_FLOAT = 3
+
+# ------------------------------------
+# Symbol table constants
+# must match Rust repr(C) layout
+# ------------------------------------
+
+SYMBOLS_PATH      = "/dev/shm/noladder_symbols"
+MAX_SYMBOLS_COUNT = 512
+
+# Symbol struct (repr(C), size=72):
+#   u32  index      offset 0  (4 bytes)
+#   u8   kind       offset 4  (1 byte)  0=input 1=output
+#   u8   value_type offset 5  (1 byte)  0=unset 1=bool 2=int 3=float
+#   u8   name_len   offset 6  (1 byte)
+#   u8   _pad       offset 7  (1 byte)
+#   u8   name[64]   offset 8  (64 bytes)
+_SYMBOL_SIZE        = 72
+_TABLE_HEADER_SIZE  = 8  # u32 count + [u8; 4] padding
 
 # ------------------------------------
 # Shared memory reader
@@ -75,7 +94,7 @@ class ShmReader:
             return 0
         self.mm.seek(SEQUENCE_OFF)
         return struct.unpack(
-            "I", self.mm.read(4)
+            "Q", self.mm.read(8)
         )[0]
 
     def read_value(self, offset):
@@ -258,16 +277,78 @@ class ForceStore:
             return None
 
 # ------------------------------------
+# Symbol table reader
+# ------------------------------------
+
+def load_symbols(path=SYMBOLS_PATH):
+    """
+    Read the shared symbol table written by noladder-bus.
+
+    Returns dict of (kind, index) -> (name, kind, value_type):
+        kind:       0 = input, 1 = output
+        index:      slot index within inputs or outputs array
+        value_type: 0 = unset, 1 = bool, 2 = int, 3 = float
+
+    Returns empty dict if the symbol table is not available
+    or contains no entries.
+    """
+    try:
+        fd   = os.open(path, os.O_RDONLY)
+        size = os.fstat(fd).st_size
+        mm   = mmap.mmap(
+            fd, size,
+            mmap.MAP_SHARED,
+            mmap.PROT_READ,
+        )
+        os.close(fd)
+
+        mm.seek(0)
+        count = struct.unpack("I", mm.read(4))[0]
+
+        if count == 0 or count > MAX_SYMBOLS_COUNT:
+            mm.close()
+            return {}
+
+        result = {}
+        for i in range(count):
+            offset = _TABLE_HEADER_SIZE + i * _SYMBOL_SIZE
+            mm.seek(offset)
+            data       = mm.read(_SYMBOL_SIZE)
+            index      = struct.unpack_from("I", data, 0)[0]
+            kind       = data[4]
+            value_type = data[5]
+            name_len   = data[6]
+            name       = data[8:8 + name_len].decode(
+                "utf-8", errors="replace"
+            )
+            result[(kind, index)] = (name, kind, value_type)
+
+        mm.close()
+        return result
+    except Exception:
+        return {}
+
+# ------------------------------------
 # Config reader
 # loads machine.toml to get device names
 # ------------------------------------
 
 class MachineConfig:
     def __init__(self, path="machine.toml"):
-        self.devices = []
+        self.devices      = []
+        self.symbol_source = False  # True = live table, False = toml
         self.load(path)
 
     def load(self, path):
+        # try live symbol table first
+        symbols = load_symbols()
+        if symbols:
+            self._build_from_symbols(symbols)
+            self.symbol_source = True
+            return
+
+        # fall back to machine.toml
+        self.symbol_source = False
         try:
             with open(path, "rb") as f:
                 config = tomllib.load(f)
@@ -318,6 +399,52 @@ class MachineConfig:
 
         except Exception as e:
             print(f"Config load error: {e}")
+
+    def _build_from_symbols(self, symbols):
+        """
+        Reconstruct device list from a symbol table dict.
+
+        symbols: {(kind, index): (name, kind, value_type)}
+        Groups symbols by device path prefix to form device panels.
+        """
+        input_sigs  = defaultdict(list)
+        output_sigs = defaultdict(list)
+
+        for (kind, index), (name, _, _vtype) in symbols.items():
+            # split "device.path.signal" into prefix + signal
+            if "." in name:
+                device_path, signal = name.rsplit(".", 1)
+            else:
+                device_path = name
+                signal      = ""
+
+            if kind == 0:
+                input_sigs[device_path].append((index, signal))
+            else:
+                output_sigs[device_path].append((index, signal))
+
+        all_paths = sorted(
+            set(list(input_sigs.keys()) +
+                list(output_sigs.keys()))
+        )
+
+        for dpath in all_paths:
+            ins  = sorted(input_sigs[dpath],  key=lambda x: x[0])
+            outs = sorted(output_sigs[dpath], key=lambda x: x[0])
+
+            self.devices.append({
+                "path":           dpath,
+                "kind":           "unknown",
+                "bus":            "",
+                "node":           0,
+                "input_base":     ins[0][0]  if ins  else 0,
+                "output_base":    outs[0][0] if outs else 0,
+                "input_count":    len(ins),
+                "output_count":   len(outs),
+                "note":           None,
+                "input_signals":  [s for _, s in ins],
+                "output_signals": [s for _, s in outs],
+            })
 
     def input_count(self, kind):
         counts = {
@@ -983,6 +1110,19 @@ class MonitorWindow(QMainWindow):
         )
         header.addWidget(self.count_label)
 
+        header.addSpacing(20)
+
+        # show whether symbols came from bus or config file
+        if self.config.symbol_source:
+            src_text  = "⬤ Live symbol table"
+            src_style = "color: #00c864;"
+        else:
+            src_text  = "⬤ Config file"
+            src_style = "color: #9cdcfe;"
+        self.source_label = QLabel(src_text)
+        self.source_label.setStyleSheet(src_style)
+        header.addWidget(self.source_label)
+
         header.addStretch()
         layout.addLayout(header)
 
@@ -1011,15 +1151,18 @@ class MonitorWindow(QMainWindow):
         scroll_layout = QVBoxLayout(scroll_content)
 
         for device in self.config.devices:
-            # attach signal names
-            device["input_signals"] = \
-                self.config.input_signals(
-                    device["kind"]
-                )
-            device["output_signals"] = \
-                self.config.output_signals(
-                    device["kind"]
-                )
+            # attach signal names from device kind when
+            # loading from toml — symbol table path sets
+            # them directly in _build_from_symbols
+            if not self.config.symbol_source:
+                device["input_signals"] = \
+                    self.config.input_signals(
+                        device["kind"]
+                    )
+                device["output_signals"] = \
+                    self.config.output_signals(
+                        device["kind"]
+                    )
 
             panel = DevicePanel(
                 device,

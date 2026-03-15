@@ -20,7 +20,11 @@ use tracing::{info, warn, error};
 use noladder::config::loader;
 use noladder::core::shared_memory::{
     SharedIOImage,
+    SharedSymbolTable,
+    Symbol,
     SHM_PATH,
+    SYMBOLS_PATH,
+    MAX_SYMBOLS,
 };
 use noladder::bus;
 
@@ -51,6 +55,7 @@ fn main() -> Result<()> {
     // clean up any stale shared memory
     // from previous run
     cleanup_shm(SHM_PATH);
+    cleanup_shm(SYMBOLS_PATH);
 
     // create shared memory region
     // control loop will open this
@@ -61,6 +66,10 @@ fn main() -> Result<()> {
          waiting for control loop",
         SHM_PATH
     );
+
+    // write symbol table so monitor / tools
+    // are self-describing without machine.toml
+    write_symbol_table(&config)?;
 
     // register signal handler
     // clean up shared memory on exit
@@ -173,7 +182,131 @@ fn setup_signal_handler(_path: &'static str) {
 }
 
 extern "C" fn handle_signal(_: libc::c_int) {
-    // remove shared memory file
+    // remove shared memory files
     let _ = std::fs::remove_file(SHM_PATH);
+    let _ = std::fs::remove_file(SYMBOLS_PATH);
     std::process::exit(0);
+}
+
+// ------------------------------------
+// Symbol table
+// ------------------------------------
+
+fn write_symbol_table(
+    config: &loader::Config,
+) -> Result<()> {
+    let mut shm = SharedSymbolTable::create(SYMBOLS_PATH)?;
+    let table   = shm.get_mut();
+
+    let mut count = 0usize;
+
+    for device in &config.devices {
+        for (offset, sig) in
+            kind_input_signals(&device.kind).iter().enumerate()
+        {
+            if count >= MAX_SYMBOLS { break; }
+            let name = if sig.is_empty() {
+                device.path.clone()
+            } else {
+                format!("{}.{}", device.path, sig)
+            };
+            fill_symbol(
+                &mut table.symbols[count],
+                (device.input_base + offset) as u32,
+                0, // kind: input
+                &name,
+            );
+            count += 1;
+        }
+
+        for (offset, sig) in
+            kind_output_signals(&device.kind).iter().enumerate()
+        {
+            if count >= MAX_SYMBOLS { break; }
+            let name = if sig.is_empty() {
+                device.path.clone()
+            } else {
+                format!("{}.{}", device.path, sig)
+            };
+            fill_symbol(
+                &mut table.symbols[count],
+                (device.output_base + offset) as u32,
+                1, // kind: output
+                &name,
+            );
+            count += 1;
+        }
+    }
+
+    table.count = count as u32;
+
+    // keep mmap alive for process lifetime —
+    // same pattern as SharedIOImage
+    std::mem::forget(shm);
+
+    info!(
+        "Symbol table written — {} symbols at {}",
+        count, SYMBOLS_PATH
+    );
+
+    Ok(())
+}
+
+fn fill_symbol(
+    sym:   &mut Symbol,
+    index: u32,
+    kind:  u8,
+    name:  &str,
+) {
+    sym.index      = index;
+    sym.kind       = kind;
+    sym.value_type = 0; // determined at runtime
+    let bytes      = name.as_bytes();
+    let len        = bytes.len().min(64);
+    sym.name_len   = len as u8;
+    sym._pad       = 0;
+    sym.name[..len].copy_from_slice(&bytes[..len]);
+}
+
+fn kind_input_signals(
+    kind: &loader::DeviceKind,
+) -> &'static [&'static str] {
+    match kind {
+        loader::DeviceKind::ServoDrive  => &[
+            "position", "velocity", "torque",
+            "following_error", "enabled", "fault",
+            "target_reached", "homing_complete",
+            "error_code", "referenced",
+        ],
+        loader::DeviceKind::Vfd         => &["speed", "current"],
+        loader::DeviceKind::DigitalIn   => &["0","1","2","3","4","5","6","7"],
+        loader::DeviceKind::DigitalOut  => &[],
+        loader::DeviceKind::AnalogIn    => &["0","1","2","3"],
+        loader::DeviceKind::AnalogOut   => &[],
+        loader::DeviceKind::MixedIo     => &["0","1","2","3"],
+        loader::DeviceKind::SafetyRelay => &["ok", "fault"],
+        loader::DeviceKind::SafetyDoor  => &["closed", "locked"],
+        loader::DeviceKind::Flag        => &[""],
+    }
+}
+
+fn kind_output_signals(
+    kind: &loader::DeviceKind,
+) -> &'static [&'static str] {
+    match kind {
+        loader::DeviceKind::ServoDrive  => &[
+            "target_position", "target_velocity",
+            "target_torque", "max_torque",
+            "fault_reset", "quick_stop",
+        ],
+        loader::DeviceKind::Vfd         => &["setpoint", "enable"],
+        loader::DeviceKind::DigitalIn   => &[],
+        loader::DeviceKind::DigitalOut  => &["0","1","2","3","4","5","6","7"],
+        loader::DeviceKind::AnalogIn    => &[],
+        loader::DeviceKind::AnalogOut   => &["0","1","2","3"],
+        loader::DeviceKind::MixedIo     => &["0","1","2","3"],
+        loader::DeviceKind::SafetyRelay => &["reset"],
+        loader::DeviceKind::SafetyDoor  => &[],
+        loader::DeviceKind::Flag        => &[""],
+    }
 }

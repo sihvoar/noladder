@@ -1,7 +1,7 @@
 // Copyright 2026 AP Sihvonen
 // SPDX-License-Identifier: MIT
 
-// src/examples/hello_world/main.rs
+// examples/hello_world/main.rs
 //
 // hello_world control process
 //
@@ -10,26 +10,25 @@
 // blocking.  Does not know or care what the OS process does.
 //
 // Start order:
-//   cargo run --example hello_world_bus   # terminal 1
-//   cargo run --example hello_world_os    # terminal 2
-//   cargo run --example hello_world       # terminal 3
+//   Terminal 1: python3 tools/noladder_mock_bus.py examples/hello_world/machine.toml
+//   Terminal 2: cargo run --bin noladder-bus  -- examples/hello_world/machine.toml
+//   Terminal 3: cargo run --example hello_world_os
+//   Terminal 4: cargo run --example hello_world
+//   Terminal 5: python3 tools/noladder_monitor.py examples/hello_world/machine.toml
 
 use tracing::info;
 
 use noladder::{
     rung,
     core::{
-        io_image::{InputIndex, Value},
+        io_image::{InputIndex, OutputIndex, Value},
         arena::Arena,
         cycle,
-        shared_memory::{SharedIOImage, SharedMailbox},
+        shared_memory::{SharedIOImage, SharedMailbox, SHM_IO_PATH, SHM_MB_PATH},
     },
     config::loader,
+    DeviceMap,
 };
-
-const SHM_IO:  &str = "/dev/shm/noladder_hello_io";
-const SHM_MB:  &str = "/dev/shm/noladder_hello_mb";
-const COIL:    InputIndex = InputIndex(0);
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -38,19 +37,33 @@ fn main() -> anyhow::Result<()> {
 
     info!("─────────────────────────────────");
     info!("  hello_world control process");
-    info!("  IO      ← {}", SHM_IO);
-    info!("  Mailbox → {}", SHM_MB);
+    info!("  IO      ← {}", SHM_IO_PATH);
+    info!("  Mailbox → {}", SHM_MB_PATH);
     info!("─────────────────────────────────");
 
     let config = loader::load("examples/hello_world/machine.toml")?;
+
+    // ------------------------------------
+    // Resolve signal paths to IO indices
+    // Panics at startup if machine.toml is wrong —
+    // never panics at runtime
+    // ------------------------------------
+
+    let map = DeviceMap::build(&config);
+
+    let level_idx    = InputIndex(map.input("demo.sensors.0"));
+    let speed_idx    = InputIndex(map.input("demo.pump.speed"));
+    let current_idx  = InputIndex(map.input("demo.pump.current"));
+    let setpoint_idx = OutputIndex(map.output("demo.pump.setpoint"));
+    let enable_idx   = OutputIndex(map.output("demo.pump.enable"));
 
     // ------------------------------------
     // Open shared memory created by the
     // bus and OS processes
     // ------------------------------------
 
-    let mut io_shm = SharedIOImage::open(SHM_IO)?;
-    let mut mb_shm = SharedMailbox::open(SHM_MB)?;
+    let mut io_shm = SharedIOImage::open(SHM_IO_PATH)?;
+    let mut mb_shm = SharedMailbox::open(SHM_MB_PATH)?;
 
     // ------------------------------------
     // Rungs
@@ -58,17 +71,32 @@ fn main() -> anyhow::Result<()> {
 
     let mut arena = Arena::new();
 
+    // Pump control: reads level + speed, writes setpoint + enable, logs every second
+    arena.add(rung!(pump_control, |ctx| {
+        loop {
+            let level   = ctx.read_float(level_idx);
+            let speed   = ctx.read_float(speed_idx);
+            let current = ctx.read_float(current_idx);
+
+            // simple level control: run pump when tank level > 30 %
+            let setpoint = if level > 30.0 { 1500.0_f32 } else { 0.0_f32 };
+            ctx.write(setpoint_idx, Value::Float(setpoint));
+            ctx.write(enable_idx,   Value::Bool(level > 30.0));
+
+            info!(
+                "level {:.0}%  speed {:.0} rpm  current {:.1} A",
+                level, speed, current
+            );
+
+            ctx.yield_ms(1000).await;
+        }
+    }));
+
+    // Hello World: continuous demonstration of OS requests
     arena.add(rung!(hello_world, |ctx| {
         loop {
-            // suspend until bus process sets coil active
-            ctx.yield_until(COIL, Value::Bool(true)).await;
-
-            info!("Coil active — posting to OS process");
-            ctx.os_request("hello", b"").await;
-            info!("OS response received — waiting for coil reset");
-
-            // wait for coil to go inactive before looping
-            ctx.yield_until(COIL, Value::Bool(false)).await;
+            ctx.os_request("hello", b"pump_controller").await;
+            ctx.yield_ms(2000).await;  // repeat every 2 seconds
         }
     }));
 

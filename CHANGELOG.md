@@ -2,6 +2,38 @@
 
 All notable changes to NoLadder will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Symbol Table (Self-Describing IO)**
+  - `noladder-bus` writes symbol table to `/dev/shm/noladder_symbols` at startup
+  - Monitor and diagnostic tools can discover signal names without `machine.toml`
+  - Fixed-size 36,872-byte symbol table with deterministic C struct layout
+  - Compile-time size assertions ensure cross-platform compatibility
+  - Symbols include index, kind (input/output), and name for each IO point
+
+- **Documentation**
+  - Refreshed README with clearer value proposition and architecture diagram
+  - Better examples and quick-start instructions
+  - Links to comprehensive docs (Architecture, User Guide, Design notes)
+
+- **Tool Compatibility**
+  - Updated `noladder_mock_bus.py` for pymodbus 3.x
+  - Fixed `ModbusSlaveContext` → `ModbusDeviceContext` migration
+  - Corrected `ModbusServerContext` initialization for single device mode
+
+### Changed
+- **Examples**
+  - `hello_world` control process now demonstrates continuous rung execution
+  - "Hello World" OS request sent every 2 seconds instead of once at startup
+  - Better demonstration of multi-rung interaction (pump control + hello world)
+
+### Fixed
+- **Symbol Table Structure**
+  - Added explicit `_pad` field to `Symbol` struct for deterministic layout
+  - Added padding to `SymbolTable` for 8-byte alignment (4-byte count + 4-byte pad + 512×72 bytes)
+  - Python monitor now reads symbol names from correct offset (8, not 7)
+
 ## [0.1.0] - 2026-03-15
 
 ### Added
