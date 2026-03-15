@@ -77,6 +77,30 @@ else
         echo "  ✓ OpenSSL dev headers found"
     fi
 
+    # Check for OpenGL (needed by PySide6)
+    if [ ! -f /usr/lib/x86_64-linux-gnu/libGL.so.1 ]; then
+        echo "  ✗ OpenGL libraries not found"
+        PACKAGES_NEEDED="$PACKAGES_NEEDED libgl1-mesa-glx"
+    else
+        echo "  ✓ OpenGL libraries found"
+    fi
+
+    # Check for X11 libraries (needed by PySide6)
+    if [ ! -f /usr/lib/x86_64-linux-gnu/libX11.so.6 ]; then
+        echo "  ✗ X11 libraries not found"
+        PACKAGES_NEEDED="$PACKAGES_NEEDED libx11-6"
+    else
+        echo "  ✓ X11 libraries found"
+    fi
+
+    # Check for DBus (needed by PySide6)
+    if [ ! -f /usr/lib/x86_64-linux-gnu/libdbus-1.so.3 ]; then
+        echo "  ✗ DBus not found"
+        PACKAGES_NEEDED="$PACKAGES_NEEDED libdbus-1-3"
+    else
+        echo "  ✓ DBus found"
+    fi
+
     if [ -n "$PACKAGES_NEEDED" ]; then
         echo ""
         echo "  Installing missing packages:$PACKAGES_NEEDED"
