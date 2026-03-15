@@ -50,6 +50,39 @@ Swap hardware without changing a line of control code.
 
 ---
 
+## Why This Matters
+
+PLC manufacturers have spent decades trying to produce something like this.
+They haven't, because their business model depends on lock-in.
+
+NoLadder is **different**:
+
+**Modern language** — Rust, not Structured Text from 1993.
+You get type safety, pattern matching, real error handling.
+
+**Standard Linux** — Runs on any IPC with a network port.
+Not trapped in proprietary hardware.
+
+**No vendor lock-in** — Everything is standard, open, portable.
+Your code works today. It works tomorrow. It doesn't depend on a company's product roadmap.
+
+**Self-describing** — Symbol tables mean tools work without config files.
+The monitor reads shared memory directly. Inspect any signal live.
+
+**Accessible** — One script on fresh Ubuntu:
+```bash
+./tools/setup.sh
+./tools/launch_hello_world.sh
+```
+
+Working industrial control system. 5 minutes. No license keys. No proprietary runtime.
+
+This is what Siemens, AB, and Mitsubishi **cannot** offer:
+A system engineers actually want to work with,
+that doesn't hold them hostage to a vendor's ecosystem.
+
+---
+
 ## Get Started in 3 Commands
 
 No hardware required. Fresh Linux? No problem.
