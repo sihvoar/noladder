@@ -1,23 +1,32 @@
 #!/bin/bash
 # Wrapper script for noladder_monitor.py
-# Automatically activates the virtual environment
-
-set -e
+# Uses venv if system PySide6 has Qt6 library issues
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_PATH="$SCRIPT_DIR/.venv"
 
-# Check if venv exists
-if [ ! -d "$VENV_PATH" ]; then
-    echo "Creating Python virtual environment..."
-    python3 -m venv "$VENV_PATH"
-
-    echo "Installing dependencies..."
-    "$VENV_PATH/bin/pip" install --upgrade pip setuptools wheel > /dev/null
-    "$VENV_PATH/bin/pip" install PySide6 pymodbus > /dev/null
-    echo "✓ Virtual environment ready"
+# Try system Python first
+if python3 "$SCRIPT_DIR/tools/noladder_monitor.py" "$@" 2>/dev/null; then
+    exit 0
 fi
 
-# Activate venv and run monitor
-source "$VENV_PATH/bin/activate"
-exec python3 "$SCRIPT_DIR/tools/noladder_monitor.py" "$@"
+# If it fails, try venv
+if [ -d "$VENV_PATH" ]; then
+    source "$VENV_PATH/bin/activate"
+    exec python3 "$SCRIPT_DIR/tools/noladder_monitor.py" "$@"
+fi
+
+# If no venv, offer to create one
+echo "PySide6 import error detected (Qt6 library mismatch)."
+echo ""
+echo "Solutions:"
+echo "  1. Create virtual environment (auto-setup):"
+echo "       python3 -m venv .venv"
+echo "       source .venv/bin/activate"
+echo "       pip install PySide6"
+echo ""
+echo "  2. Install system-wide (requires sudo):"
+echo "       sudo apt install python3-pyside6"
+echo ""
+echo "See PYTHON_SETUP.md for details."
+exit 1
