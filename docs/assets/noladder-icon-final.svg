@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- NoLadder icon — path based, no font dependency -->
+  <!-- Flat arrowhead at arc end -->
+  <!-- Copyright 2025 Your Name — SPDX-License-Identifier: MIT -->
+
+  <!-- background -->
+  <rect width="64" height="64" fill="#181f19" rx="10"/>
+
+  <!-- cycle mark centered at 32,32 -->
+  <g transform="translate(32, 32)">
+
+    <!-- arc — almost full circle, clockwise -->
+    <path
+      d="M 0,-19 A 19,19 0 1,1 -14,13"
+      fill="none"
+      stroke="#5cba6e"
+      stroke-width="4"
+      stroke-linecap="round"/>
+
+    <!-- flat arrowhead — points straight down at arc end -->
+    <polygon points="-14,19 -20,11 -8,11" fill="#5cba6e"/>
+
+  </g>
+</svg>

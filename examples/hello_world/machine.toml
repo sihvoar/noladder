@@ -1,0 +1,23 @@
+# src/examples/hello_world/machine.toml
+#
+# hello_world example — simulated Modbus coil
+# No hardware required — slave runs in the same process
+#
+# Run with:
+#   cargo run --example hello_world
+
+[general]
+cycle_ms = 10
+
+[bus.modbus0]
+interface = "127.0.0.1"
+port      = 5502
+cycle_ms  = 10
+
+# One digital input — the coil
+# inputs:
+#   coil.0  bool  active after 2 seconds
+[device."coil"]
+bus  = "modbus0"
+node = 0
+type = "digital_in"

@@ -1,0 +1,70 @@
+# machine.toml
+# Root level — real hardware example
+# Edit to match your actual hardware
+#
+# Validate before running:
+#   cargo run --bin validate -- machine.toml
+#
+# Start bus server first:
+#   noladder-bus machine.toml
+#
+# Then start control loop:
+#   noladder machine.toml
+
+[general]
+cycle_ms = 10
+
+# ------------------------------------
+# Buses
+# ------------------------------------
+
+[bus.ethercat0]
+interface = "eth1"
+cycle_ms  = 1
+
+[bus.modbus0]
+interface = "192.168.1.100"
+port      = 502
+cycle_ms  = 10
+note      = "legacy devices — do not use for time critical logic"
+
+[bus.virtual]
+interface = "none"
+cycle_ms  = 0
+
+# ------------------------------------
+# Devices
+# ------------------------------------
+
+[device."line1.conveyor.motor"]
+bus  = "ethercat0"
+node = 3
+type = "servo_drive"
+
+# renamed from sensor.home — main.rs uses sensor.0
+[device."line1.conveyor.sensor"]
+bus  = "ethercat0"
+node = 4
+type = "digital_in"
+
+[device."line1.tank.pressure"]
+bus  = "modbus0"
+node = 12
+type = "analog_in"
+note = "10ms latency"
+
+# ------------------------------------
+# Internal coordination flags
+# virtual bus — not connected to hardware
+# used to pass state between rungs
+# ------------------------------------
+
+[device."flags.homed"]
+bus  = "virtual"
+node = 0
+type = "flag"
+
+[device."flags.recipe_speed"]
+bus  = "virtual"
+node = 1
+type = "flag"

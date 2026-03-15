@@ -1,0 +1,49 @@
+# src/examples/basic_io/machine.toml
+#
+# Basic IO example — simulated conveyor with motor and home sensor
+# Runs against software Modbus slave — no hardware required
+#
+# Usage:
+#   cargo run --example basic_io
+
+[general]
+cycle_ms = 10
+
+# ------------------------------------
+# Buses
+# ------------------------------------
+
+[bus.modbus0]
+interface = "127.0.0.1"
+port      = 502
+cycle_ms  = 10
+# simulated Modbus slave started automatically
+# see src/examples/basic_io/slave.rs
+
+# ------------------------------------
+# Devices
+#
+# line1.conveyor.motor  — VFD drive
+#   inputs:
+#     line1.conveyor.motor.speed    float  rpm actual
+#     line1.conveyor.motor.current  float  amps
+#   outputs:
+#     line1.conveyor.motor.setpoint float  rpm target
+#     line1.conveyor.motor.enable   bool
+#
+# line1.conveyor.sensor — digital input
+#   inputs:
+#     line1.conveyor.sensor.0       bool   home sensor
+#   outputs:
+#     none
+# ------------------------------------
+
+[device."line1.conveyor.motor"]
+bus  = "modbus0"
+node = 0
+type = "vfd"
+
+[device."line1.conveyor.sensor"]
+bus  = "modbus0"
+node = 1
+type = "digital_in"

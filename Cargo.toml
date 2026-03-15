@@ -1,0 +1,108 @@
+[package]
+name          = "noladder"
+version       = "0.1.0"
+edition       = "2021"
+rust-version  = "1.75"
+description   = "Modern industrial control runtime for Linux IPCs"
+license       = "MIT"
+repository    = "https://github.com/sihvoar/noladder"
+documentation = "https://docs.rs/noladder"
+readme        = "README.md"
+keywords      = ["plc", "industrial", "automation", "realtime"]
+categories    = ["embedded", "hardware-support"]
+
+# ------------------------------------
+# Library
+# ------------------------------------
+
+[lib]
+name = "noladder"
+path = "src/lib.rs"
+
+# ------------------------------------
+# Binaries
+# ------------------------------------
+
+[[bin]]
+name = "noladder"
+path = "src/main.rs"         # control loop
+
+[[bin]]
+name = "noladder-bus"
+path = "src/bin/noladder_bus.rs"   # bus server
+
+[[bin]]
+name = "validate"
+path = "src/bin/validate.rs"       # config validator
+
+[[example]]
+name = "basic_io"
+path = "examples/basic_io/main.rs"
+
+[[example]]
+name = "hello_world_bus"
+path = "examples/hello_world/bus_main.rs"
+
+[[example]]
+name = "hello_world_os"
+path = "examples/hello_world/os_main.rs"
+
+[[example]]
+name = "hello_world"
+path = "examples/hello_world/main.rs"
+
+# ------------------------------------
+# Dependencies
+# ------------------------------------
+
+[dependencies]
+# config
+serde        = { version = "1", features = ["derive"] }
+toml         = "0.8"
+
+# async for rung coroutines
+tokio        = { version = "1", features = ["rt", "macros", "time"] }
+
+# logging
+tracing      = "0.1"
+tracing-subscriber = "0.3"
+
+# error handling
+anyhow       = "1"
+thiserror    = "1"
+
+# modbus
+tokio-modbus = "0.9"
+
+# ethercat (optional — requires IgH EtherCAT master kernel module at runtime)
+# enable with: cargo build --features ethercat
+ethercat = { version = "0.3", features = ["pregenerated-bindings"], optional = true }
+
+# lock-free
+crossbeam    = "0.8"
+
+# shared memory  ← new
+memmap2      = "0.9"
+
+# linux RT
+libc         = "0.2"
+
+[features]
+ethercat = ["dep:ethercat"]
+
+[dev-dependencies]
+mockall      = "0.12"
+
+# ------------------------------------
+# Release profile
+# important for RT
+# ------------------------------------
+
+[profile.release]
+opt-level     = 3
+lto           = true
+codegen-units = 1
+panic         = "abort"
+
+[profile.dev]
+opt-level     = 1
